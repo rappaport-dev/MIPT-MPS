@@ -9,7 +9,7 @@ using Printf
 # 1. CONFIGURE YOUR PLOT
 # ------------------------------------------------------------------
 # --- The filename of the results you want to plot ---
-filename = "MIPT_sweep_MPS_2025-06-25_22-05-27.jld2" # <---- plug in file name here
+filename = "INPUT_FILENAME.jld2" # <---- plug in file name here
 
 # --- Choose the independent variable for the x-axis ---
 # Options: :p, :l, :N, :maxdim, etc. (must be a key in your param_space)
@@ -84,3 +84,4 @@ output_filename = replace(basename(filename), ".jld2" => "_$(x_variable)_plot.pn
 savefig(output_filename)
 
 println("Plot saved as: $(output_filename)")
+
