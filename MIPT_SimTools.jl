@@ -33,7 +33,6 @@ function run_single_trial(params, num_trials)
     sites = siteinds("Qubit", N)
     psi = MPS(sites, "0")
 
-    # (MODIFIED) Conditionally show the layer progress bar
     if num_trials == 1
         # If we are in single-shot mode, show the detailed progress of the layers.
         @showprogress "Evolving layers..." for _ in 1:l
@@ -54,21 +53,7 @@ function run_single_trial(params, num_trials)
     Sn = ee_region(psi, collect(region); ee_type=EEType("Renyi"), n=renyi_alpha)
     return Sn
 end 
-    # code above is commented out as ee_region may actually be inefficient
 
-    # code copy/pasted from MPS and MPO examples page on ITensorMPS.jl
-#=     b = N ÷ 2
-    psi = orthogonalize(psi, b)
-    U,S,V = svd(psi[b], (linkinds(psi, b-1)..., siteinds(psi, b)...))
-    SvN = 0.0
-    for n=1:dim(S, 1)
-    p = S[n,n]^2
-    SvN -= p * log(p)
-    end
-    return SvN =#
-# end
-
-# (NEW) Helper function to improve readability
 function apply_one_layer_mps!(psi, sites, p; cutoff, maxdim)
     N = length(psi)
     # Unitary Layers
@@ -89,8 +74,6 @@ function apply_one_layer_mps!(psi, sites, p; cutoff, maxdim)
     end
 end
 
-
-# --- The main runner function that handles parameter sweeps and parallelization ---
 function run_parameter_sweep(param_space::Dict, num_trials::Int)
     # Generate all unique combinations of parameters
     param_combinations = collect(IterTools.product(
@@ -122,7 +105,7 @@ function run_parameter_sweep(param_space::Dict, num_trials::Int)
         prog = Progress(num_trials, desc)
         progress_lock = ReentrantLock()
 
-        # We can still parallelize the trials for each parameter set
+        # We can parallelize the trials for each parameter set
         Threads.@threads for trial in 1:num_trials
             trial_entropies[trial] = run_single_trial(params, num_trials)
             lock(progress_lock) do
@@ -145,8 +128,6 @@ end
 # SECTION 2: EXACT (FULL STATE VECTOR) SIMULATOR
 # ==================================================================
 
-# (This function goes inside your MIPT_SimTools.jl module)
-
 function run_single_trial_exact(params)
     # Unpack parameters
     N, l, p, renyi_alpha = params.N, params.l, params.p, params.renyi_alpha
@@ -155,10 +136,7 @@ function run_single_trial_exact(params)
     state = onehot(ComplexF64, (idx => 1 for idx in indices)...)
 
     for _ in 1:l
-        # (BUGFIX) - The unitary circuit structure now matches the MPS version.
-        # It applies a full "brick wall" layer (even and odd bonds) for each `l`.
-        #
-        # Apply to even bonds
+       
         for j in 1:2:N-1
             U_tensor = random_unitary_gate(indices[j], indices[j+1])
             state = apply(U_tensor, state)
@@ -246,12 +224,10 @@ end
 function save_results(df::DataFrame, param_space::Dict, mode::Symbol)
     timestamp = Dates.format(now(), "YYYY-mm-dd_HH-MM-SS")
     
-    # (MODIFIED) - The `mode` argument is now used to create a descriptive filename
     filename = "MIPT_sweep_$(mode)_$(timestamp).jld2"
     
     println("\nSaving results to JLD2 file: $(filename)")
     
-    # (MODIFIED) - The `mode` is also saved inside the file for full reproducibility
     jldsave(filename; df=df, param_space=param_space, mode=mode)
     
     println("File saved.")
@@ -266,7 +242,7 @@ function renyi_entropy(ψ::ITensor, region::Vector{<:Index}, α::Real)
     # The diagonal elements of the S ITensor are the singular values.
     # The squared singular values are the eigenvalues of the reduced density matrix.
     
-    # (MODIFIED) - Get the diagonal elements directly from the S tensor.
+    # Get the  elements directly from the S tensor.
     # This is more efficient and avoids the permute/array error.
     p = diag(S) .^ 2
     
@@ -282,7 +258,7 @@ function renyi_entropy(ψ::ITensor, region::Vector{<:Index}, α::Real)
 end
 
 # ==================================================================
-# (NEW) SECTION 4: STABILIZER RENYI ENTROPY (SRE) CALCULATION
+# SECTION 4: STABILIZER RENYI ENTROPY (SRE) CALCULATION
 # ==================================================================
 
 """
@@ -294,7 +270,7 @@ This algorithm is based on Lami & Collura, PRL 131, 180401 (2023). [cite: 1, 2]
 """
 function sample_pauli_string(psi::MPS)
     N = length(psi)
-    # Ensure the MPS is in right-normalized form for efficient contraction[cite: 65, 96].
+    # Ensure the MPS is in right-normalized form for efficient contraction.
     orthogonalize!(psi, N)
 
     # Define the local Pauli operators for convenience.
@@ -387,6 +363,7 @@ function calculate_sre(psi::MPS, n_renyi::Real; num_samples::Int=1000)
         return (1 / (1 - n_renyi)) * log(M_n_val)
     end
 end
+
 
 
 end # end module
